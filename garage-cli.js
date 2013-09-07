@@ -218,7 +218,7 @@ nomnom.command('stop')
     .help('Stop nodes')
     .callback(function (opts) {
         var data = {};
-        opts.IDLIST.length > 0 && (data.ids = opts.IDLIST);
+        opts.IDLIST && opts.IDLIST.length > 0 && (data.ids = opts.IDLIST);
         rest(opts.server + '/clusters/' + opts.CLUSTER + '/stop', data);
     });
 
