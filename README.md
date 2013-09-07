@@ -74,10 +74,10 @@ but it is very easy to add other containers like QEMU,
 VirtualBox etc if you can build rootfs in virtual disk files.
 There are only 4 script files you need to add:
 
-- nodes  it prints created node IDs one per line
-- status it accepts one parameter as node ID and displays node status as one `key:value` pair per line
-- start  it accepts one parameter as node ID for starting the node
-- stop   it accepts one parameter as node ID for stopping the node
+- `nodes`  it prints created node IDs one per line
+- `status` it accepts one parameter as node ID and displays node status as one `key:value` pair per line
+- `start`  it accepts one parameter as node ID for starting the node
+- `stop`   it accepts one parameter as node ID for stopping the node
 
 ## License
 
