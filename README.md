@@ -67,6 +67,13 @@ You can stop any nodes in the cluster as simple as `start`
 garage-cli stop myCluster 1 5 7 9 10-20
 ```
 
+### Special configuration for Linux Container
+
+The default Linux Container support requires something to be pre-configured.
+
+- One bridge for accessing external network with DHCP, NAT enabled, the name should be `lxcbr0`
+- One bridge for cluster private network, no DHCP configured on host, the name should be `evobr0`
+
 ## Supported Containers
 
 It only supports Linux Container at present, 
