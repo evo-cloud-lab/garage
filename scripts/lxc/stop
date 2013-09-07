@@ -1,0 +1,15 @@
+#!/bin/bash
+
+ID=$1
+NAME=${CLUSTER_NAME}-$ID
+BASE=$CLUSTER_BASE/nodes/node-$ID
+
+STATUS=$(lxc-info -n $NAME 2>/dev/null | grep 'state:' | sed -r 's/^state:[[:space:]]*([^[:space:]]+).*$/\1/')
+
+if [ "$STATUS" == "RUNNING" ]; then
+    lxc-kill -n $NAME
+fi
+
+for dir in root os base ; do
+    ! mountpoint $BASE/$dir || umount $BASE/$dir
+done

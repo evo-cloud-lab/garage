@@ -1,0 +1,11 @@
+#!/bin/bash
+
+ID=$1
+NAME=${CLUSTER_NAME}-$ID
+BASE=$CLUSTER_BASE/nodes
+
+if [ -d "$BASE/node-$ID" ]; then
+    lxc-info -n $NAME
+else
+    echo "state: UNPROVISIONED"
+fi
