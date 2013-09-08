@@ -188,6 +188,7 @@ nomnom.script('garage')
         },
         version: {
             abbr: 'v',
+            flag: true,
             help: 'Display CLI version',
             callback: function () {
                 return V.name + ' CLI v' + V.version + ' (api ' + V.api + ')';

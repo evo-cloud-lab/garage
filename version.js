@@ -1,5 +1,5 @@
 module.exports = {
     name: 'Garage',
-    version: '0.0.4',
+    version: require('./package.json').version,
     api: '3.0'
 }
