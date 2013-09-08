@@ -4,7 +4,32 @@ var path    = require('path'),
     async   = require('async'),
     nomnom  = require('nomnom'),
     request = require('request'),
-    colors  = require('colors');
+    colors  = require('colors'),
+
+    V = require('./version');
+
+var API_PREFIX = '/v' + V.api.split('.')[0];
+
+function apiUrl(parser, path) {
+    return parser.server + API_PREFIX + path;
+}
+
+function apiCompatible(api) {
+    var myApi = V.api.split('.').map(function (n) { return parseInt(n); });
+    if (typeof(api) != 'string') {
+        return false;
+    }
+    var vers = api.split('.');
+    if (myApi[0] != parseInt(vers[0])) {
+        return false;
+    }
+    var rev = parseInt(vers[1]);
+    if (isNaN(rev) || myApi[1] > rev) {
+        return false;
+    }
+
+    return true;
+}
 
 function fatal(err) {
     console.log(err.message.red);
@@ -153,25 +178,33 @@ function printNodes(cluster, nodes, prefix) {
     Object.keys(nodes).length == 0 && console.log(prefix + 'No nodes provisioned'.grey);
 }
 
-nomnom.script('garage-cli')
+nomnom.script('garage')
     .options({
         server: {
             abbr: 's',
             metavar: 'URL',
             help: 'Server URL',
             default: 'http://localhost:3030'
+        },
+        version: {
+            abbr: 'v',
+            help: 'Display CLI version',
+            callback: function () {
+                return V.name + ' CLI v' + V.version + ' (api ' + V.api + ')';
+            }
         }
     });
 
 nomnom.command('info')
     .help('Display Server and CLI information')
     .callback(function (opts) {
-        console.log('Garage CLI'.yellow.bold);
-        printObject({ version: '0.0.3', api: '2.0' }, PREFIX);
+        console.log(V.name + ' CLI'.yellow.bold);
+        printObject(V, PREFIX);
         if (opts.server) {
             rest(opts.server + '/info', function (data) {
-                console.log("\nGarage Server".yellow.bold);
+                console.log("\n" + V.name + ' Server'.yellow.bold);
                 printObject(data, PREFIX);
+                apiCompatible(data.api) || console.log('API incompatible!'.red);
             });
         }
     });
@@ -179,7 +212,7 @@ nomnom.command('info')
 nomnom.command('clusters')
     .help('List all clusters')
     .callback(function (opts) {
-        rest(opts.server + '/clusters', function (data) {
+        rest(apiUrl(opts, '/clusters'), function (data) {
             for (var name in data) {
                 printCluster(data[name]);
             }
@@ -190,7 +223,7 @@ nomnom.command('clusters')
 nomnom.command('reload')
     .help('Reload all cluster configurations')
     .callback(function (opts) {
-        rest(opts.server + '/clusters/reload', { method: 'POST' });
+        rest(apiUrl(opts, '/clusters/reload'), { method: 'POST' });
     });
 
 nomnom.command('add-clusters')
@@ -203,7 +236,7 @@ nomnom.command('add-clusters')
         })
     .help('Register a new cluster')
     .callback(function (opts) {
-        rest(opts.server + '/clusters', { data: { paths: opts.PATH } }, function (data) {
+        rest(apiUrl(opts, '/clusters'), { data: { paths: opts.PATH } }, function (data) {
             Array.isArray(data) && data.forEach(printCluster);
         });
     });
@@ -218,19 +251,19 @@ nomnom.command('nodes')
     .help('List all nodes in CLUSTER')
     .callback(function (opts) {
         if (opts.CLUSTER) {
-            rest(opts.server + '/clusters/' + opts.CLUSTER + '/nodes', function (data) {
+            rest(apiUrl(opts, '/clusters/' + opts.CLUSTER + '/nodes'), function (data) {
                 printNodes(opts.CLUSTER, data);
             });
         } else {
             async.waterfall([
                 function (next) {
-                    rest(opts.server + '/clusters', { next: next }, function (data) {
+                    rest(apiUrl(opts, '/clusters'), { next: next }, function (data) {
                         next(null, data);
                     });
                 },
                 function (clusters, next) {
                     async.each(Object.keys(clusters), function (name, next) {
-                        rest(opts.server + '/clusters/' + name + '/nodes', { next: next }, function (data) {
+                        rest(apiUrl(opts, '/clusters/' + name + '/nodes'), { next: next }, function (data) {
                             console.log(name.yellow.underline);
                             printNodes(name, data, PREFIX);
                             next();
@@ -256,7 +289,7 @@ nomnom.command('node')
         })
     .help('Show node details')
     .callback(function (opts) {
-        rest(opts.server + '/clusters/' + opts.CLUSTER + '/nodes/' + opts.ID, function (data) {
+        rest(apiUrl(opts, '/clusters/' + opts.CLUSTER + '/nodes/' + opts.ID), function (data) {
             printNode(opts.ID, data, '', ALIGN);
         });
     });
@@ -283,7 +316,7 @@ nomnom.command('start')
     .callback(function (opts) {
         var data = { ids: opts.IDLIST, options: {} };
         opts.clean && (data.options.clean = true);
-        rest(opts.server + '/clusters/' + opts.CLUSTER + '/start', { data: data });
+        rest(apiUrl(opts, '/clusters/' + opts.CLUSTER + '/start'), { data: data });
     });
 
 nomnom.command('stop')
@@ -309,7 +342,7 @@ nomnom.command('stop')
         var data = { options: {} };
         opts.IDLIST && opts.IDLIST.length > 0 && (data.ids = opts.IDLIST);
         opts.clean && (data.options.clean = true);
-        rest(opts.server + '/clusters/' + opts.CLUSTER + '/stop', { data: data });
+        rest(apiUrl(opts, '/clusters/' + opts.CLUSTER + '/stop'), { data: data });
     });
 
 nomnom.command('shutdown')
