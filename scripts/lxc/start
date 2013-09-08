@@ -16,17 +16,22 @@ for dir in root over os base ; do
     mkdir -p $BASE/$dir
 done
 
-cat >$BASE/config <<EOF
-lxc.network.type=veth
-lxc.network.link=lxcbr0
-lxc.network.flags=up
-lxc.network.hwaddr = 00:16:3e:75:$ID_HEX:01
+echo >$BASE/config
 
+for nic in 0 1 2 3 4 5 6 7 ; do
+    env_name=NIC$nic
+    link_name=${!env_name}
+    if [ -n "$link_name" ]; then
+        cat >>$BASE/config <<EOF
 lxc.network.type=veth
-lxc.network.link=evobr0
+lxc.network.link=$link_name
 lxc.network.flags=up
-lxc.network.hwaddr = 00:16:3e:75:$ID_HEX:02
+lxc.network.hwaddr = 00:16:3e:75:$ID_HEX:0$nic
+EOF
+    fi
+done
 
+cat >>$BASE/config <<EOF
 lxc.utsname = $NAME
 
 lxc.devttydir =
@@ -71,6 +76,10 @@ lxc.cgroup.devices.allow = c 10:232 rwm
 
 EOF
 
+if [ -f "$LXC_CONFIG" ]; then
+    cat "$LXC_CONFIG" >>$BASE/config
+fi
+
 LOWER=base
 mountpoint $BASE/base || mount -t squashfs $ROOTFS $BASE/base -o ro
 
@@ -83,6 +92,7 @@ mountpoint $BASE/root || mount -t overlayfs -o rw,upperdir=$BASE/over,lowerdir=$
 
 lxc-start -n $NAME -f $BASE/config -s lxc.rootfs=$BASE/root -d
 
+# lxc-wait doesn't support timeout, can't be used here
 TRIES=0
 while [ $TRIES -lt 600 ]; do
     STATUS=$(lxc-info -n $NAME 2>/dev/null | grep 'state:' | sed -r 's/^state:[[:space:]]*([^[:space:]]+).*$/\1/')

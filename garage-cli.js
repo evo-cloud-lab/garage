@@ -29,11 +29,15 @@ function rest(path, opts, callback) {
     var requestOptions = {
         url: path,
         method: opts.method,
-        json: true
+        json: true,
+        headers: {}
     };
     if (opts.data) {
         requestOptions.body = opts.data;
+    } else if (opts.method == 'POST' || opts.method == 'PUT') {
+        requestOptions.headers['Content-Length'] = '0';
     }
+
     request(requestOptions, function (err, response, body) {
         try {
             if (err) {
@@ -81,19 +85,42 @@ function align(text, length) {
     }
 }
 
+var ALIGN = 18, PREFIX='    ';
+
+function printPair(key, val, prefix) {
+    if (typeof(val) == 'object') {
+        console.log(align(prefix + key, ALIGN).white);
+        for (var k in val) {
+            printPair(k, val[k], prefix + prefix);
+        }
+    } else if (Array.isArray(val)) {
+        console.log(align(prefix + key, ALIGN).white);
+        for (var n in val) {
+            printPair('-', val[n], prefix + prefix);
+        }
+    } else {
+        console.log(align(prefix + key, ALIGN).white + ' ' + val.toString().grey);
+    }
+}
+
 function printCluster(cluster) {
-    console.log(cluster.name.green.bold.underline);
+    console.log(cluster.name.yellow.bold);
     for (var key in cluster) {
         if (key != 'name') {
-            console.log('    ' + align(key, 16).white + ' ' + cluster[key].toString().grey);
+            printPair(key, cluster[key], PREFIX);
         }
     }
 }
 
 var STATES = {
-    RUNNING: 'green',
-    STOPPED: 'blue',
-    UNPROVISIONED: 'grey'
+    STARTING:       'yellow',
+    RUNNING:        'green',
+    STOPPING:       'yellow',
+    STOPPED:        'grey',
+    FREEZING:       'cyan',
+    FROZEN:         'blue',
+    ABORTING:       'red',
+    UNPROVISIONED:  'grey'
 };
 
 function renderState(state) {
@@ -101,13 +128,13 @@ function renderState(state) {
     return color ? state[color] : state.grey;
 }
 
-function printNode(id, status) {
-    console.log(id.toString().green.bold.underline);
+function printNode(name, status) {
+    console.log(name.yellow.bold);
     for (var key in status) {
         if (key == 'state') {
-            console.log('    ' + align(key, 16).cyan + ' ' + renderState(status[key]));
+            console.log(align(PREFIX + key, ALIGN).cyan + ' ' + renderState(status[key]));
         } else {
-            console.log('    ' + align(key, 16).white + ' ' + status[key].toString().grey);
+            console.log(align(PREFIX + key, ALIGN).white + ' ' + status[key].toString().grey);
         }
     }
 }
@@ -130,6 +157,12 @@ nomnom.command('clusters')
                 printCluster(data[name]);
             }
         });
+    });
+
+nomnom.command('reload')
+    .help('Reload all cluster configurations')
+    .callback(function (opts) {
+        rest(opts.server + '/clusters/reload', { method: 'POST' });
     });
 
 nomnom.command('add-cluster')
@@ -157,7 +190,7 @@ nomnom.command('nodes')
     .callback(function (opts) {
         rest(opts.server + '/clusters/' + opts.CLUSTER + '/nodes', function (data) {
             for (var id in data) {
-                printNode(id, data[id]);
+                printNode(opts.CLUSTER + '-' + id, data[id]);
             }
         });
     });
