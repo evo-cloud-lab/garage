@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
-var nomnom  = require('nomnom'),
+var path    = require('path'),
+    async   = require('async'),
+    nomnom  = require('nomnom'),
     request = require('request'),
     colors  = require('colors');
 
@@ -8,6 +10,10 @@ function fatal(err) {
     console.log(err.message.red);
     console.log('FAIL'.red);
     process.exit(1);
+}
+
+function complete(err) {
+    err ? fatal(err) : console.log('OK'.green);
 }
 
 function rest(path, opts, callback) {
@@ -20,11 +26,6 @@ function rest(path, opts, callback) {
         opts = {
             method: opts
         };
-    } else if (typeof(opts) == 'object') {
-        opts = {
-            method: 'POST',
-            data: opts
-        }
     }
     var requestOptions = {
         url: path,
@@ -34,6 +35,7 @@ function rest(path, opts, callback) {
     };
     if (opts.data) {
         requestOptions.body = opts.data;
+        opts.method || (requestOptions.method = 'POST');
     } else if (opts.method == 'POST' || opts.method == 'PUT') {
         requestOptions.headers['Content-Length'] = '0';
     }
@@ -50,11 +52,7 @@ function rest(path, opts, callback) {
                 throw new Error('Request failed ' + response.statusCode);
             } else {
                 done = function (err) {
-                    if (err) {
-                        fatal(err);
-                    } else {
-                        console.log('OK'.green);
-                    }
+                    (err || !opts.next) && complete(err);
                 };
                 if (callback) {
                     if (callback.length > 1) {
@@ -91,15 +89,21 @@ function printPair(key, val, prefix) {
     if (typeof(val) == 'object') {
         console.log(align(prefix + key, ALIGN).white);
         for (var k in val) {
-            printPair(k, val[k], prefix + prefix);
+            printPair(k, val[k], prefix + PREFIX);
         }
     } else if (Array.isArray(val)) {
         console.log(align(prefix + key, ALIGN).white);
         for (var n in val) {
-            printPair('-', val[n], prefix + prefix);
+            printPair('-', val[n], prefix + PREFIX);
         }
     } else {
         console.log(align(prefix + key, ALIGN).white + ' ' + val.toString().grey);
+    }
+}
+
+function printObject(object, prefix) {
+    for (var key in object) {
+        printPair(key, object[key], prefix);
     }
 }
 
@@ -128,15 +132,25 @@ function renderState(state) {
     return color ? state[color] : state.grey;
 }
 
-function printNode(name, status) {
-    console.log(name.yellow.bold);
+function printNode(name, status, prefix, alignment) {
+    console.log(prefix + name.yellow.bold);
+    prefix += PREFIX;
     for (var key in status) {
         if (key == 'state') {
-            console.log(align(PREFIX + key, ALIGN).cyan + ' ' + renderState(status[key]));
+            console.log(align(prefix + key, alignment).cyan + ' ' + renderState(status[key]));
         } else {
-            console.log(align(PREFIX + key, ALIGN).white + ' ' + status[key].toString().grey);
+            console.log(align(prefix + key, alignment).white + ' ' + status[key].toString().grey);
         }
     }
+}
+
+function printNodes(cluster, nodes, prefix) {
+    var align = prefix ? prefix.length + ALIGN : ALIGN;
+    prefix || (prefix = '');
+    for (var id in nodes) {
+        printNode(cluster + '-' + id, nodes[id], prefix, align);
+    }
+    Object.keys(nodes).length == 0 && console.log(prefix + 'No nodes provisioned'.grey);
 }
 
 nomnom.script('garage-cli')
@@ -149,6 +163,19 @@ nomnom.script('garage-cli')
         }
     });
 
+nomnom.command('info')
+    .help('Display Server and CLI information')
+    .callback(function (opts) {
+        console.log('Garage CLI'.yellow.bold);
+        printObject({ version: '0.0.3', api: '2.0' }, PREFIX);
+        if (opts.server) {
+            rest(opts.server + '/info', function (data) {
+                console.log("\nGarage Server".yellow.bold);
+                printObject(data, PREFIX);
+            });
+        }
+    });
+
 nomnom.command('clusters')
     .help('List all clusters')
     .callback(function (opts) {
@@ -156,6 +183,7 @@ nomnom.command('clusters')
             for (var name in data) {
                 printCluster(data[name]);
             }
+            Object.keys(data).length == 0 && console.log('No clusters available!'.grey);
         });
     });
 
@@ -165,34 +193,52 @@ nomnom.command('reload')
         rest(opts.server + '/clusters/reload', { method: 'POST' });
     });
 
-nomnom.command('add-cluster')
+nomnom.command('add-clusters')
         .option('PATH', {
             position: 1,
             required: true,
+            list: true,
             type: 'string',
             help: 'The directory with cluster.yml and will contain cluster files'
         })
     .help('Register a new cluster')
     .callback(function (opts) {
-        rest(opts.server + '/clusters', { path: opts.PATH }, function (data) {
-            printCluster(data);
+        rest(opts.server + '/clusters', { data: { paths: opts.PATH } }, function (data) {
+            Array.isArray(data) && data.forEach(printCluster);
         });
     });
 
 nomnom.command('nodes')
         .option('CLUSTER', {
             position: 1,
-            required: true,
+            required: false,
             type: 'string',
             help: 'Name of the cluster'
         })
     .help('List all nodes in CLUSTER')
     .callback(function (opts) {
-        rest(opts.server + '/clusters/' + opts.CLUSTER + '/nodes', function (data) {
-            for (var id in data) {
-                printNode(opts.CLUSTER + '-' + id, data[id]);
-            }
-        });
+        if (opts.CLUSTER) {
+            rest(opts.server + '/clusters/' + opts.CLUSTER + '/nodes', function (data) {
+                printNodes(opts.CLUSTER, data);
+            });
+        } else {
+            async.waterfall([
+                function (next) {
+                    rest(opts.server + '/clusters', { next: next }, function (data) {
+                        next(null, data);
+                    });
+                },
+                function (clusters, next) {
+                    async.each(Object.keys(clusters), function (name, next) {
+                        rest(opts.server + '/clusters/' + name + '/nodes', { next: next }, function (data) {
+                            console.log(name.yellow.underline);
+                            printNodes(name, data, PREFIX);
+                            next();
+                        });
+                    }, next);
+                }
+            ], complete);
+        }
     });
 
 nomnom.command('node')
@@ -211,7 +257,7 @@ nomnom.command('node')
     .help('Show node details')
     .callback(function (opts) {
         rest(opts.server + '/clusters/' + opts.CLUSTER + '/nodes/' + opts.ID, function (data) {
-            printNode(opts.ID, data);
+            printNode(opts.ID, data, '', ALIGN);
         });
     });
 
@@ -229,9 +275,15 @@ nomnom.command('start')
             type: 'string',
             help: 'List of IDs of nodes to be started'
         })
+        .option('clean', {
+            flag: true,
+            help: 'Remove all changed data before starting the node'
+        })
     .help('Start nodes')
     .callback(function (opts) {
-        rest(opts.server + '/clusters/' + opts.CLUSTER + '/start', { ids: opts.IDLIST });
+        var data = { ids: opts.IDLIST, options: {} };
+        opts.clean && (data.options.clean = true);
+        rest(opts.server + '/clusters/' + opts.CLUSTER + '/start', { data: data });
     });
 
 nomnom.command('stop')
@@ -248,11 +300,22 @@ nomnom.command('stop')
             type: 'string',
             help: 'List of IDs of nodes to be stopped, or all if not specified'
         })
+        .option('clean', {
+            flag: true,
+            help: 'Remove all changed data on the node'
+        })
     .help('Stop nodes')
     .callback(function (opts) {
-        var data = {};
+        var data = { options: {} };
         opts.IDLIST && opts.IDLIST.length > 0 && (data.ids = opts.IDLIST);
-        rest(opts.server + '/clusters/' + opts.CLUSTER + '/stop', data);
+        opts.clean && (data.options.clean = true);
+        rest(opts.server + '/clusters/' + opts.CLUSTER + '/stop', { data: data });
+    });
+
+nomnom.command('shutdown')
+    .help('Shutdown Garage server')
+    .callback(function (opts) {
+        rest(opts.server + '/shutdown', { method: 'POST' });
     });
 
 nomnom.parse();

@@ -5,6 +5,8 @@ var elements = require('evo-elements'),
 
     Server = require('./index').Server;
 
-new Server(conf.opts).start(function (err) {
-    err ? console.error('Failed to listen') : console.info('Garage started');
+var server = new Server(conf.opts);
+
+server.start(function (err) {
+    err ? console.error(err) : console.info('Garage started on %s:%s', server.address, server.port);
 });

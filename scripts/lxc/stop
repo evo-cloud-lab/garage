@@ -1,8 +1,8 @@
 #!/bin/bash
-
+set -x
 ID=$1
 NAME=${CLUSTER_NAME}-$ID
-BASE=$CLUSTER_BASE/nodes/node-$ID
+BASE=$CLUSTER_BASE/nodes/$ID
 
 STATUS=$(lxc-info -n $NAME 2>/dev/null | grep 'state:' | sed -r 's/^state:[[:space:]]*([^[:space:]]+).*$/\1/')
 
@@ -14,4 +14,13 @@ esac
 
 for dir in root os base ; do
     ! mountpoint $BASE/$dir || umount $BASE/$dir
+done
+
+shift
+for opt in $@ ; do
+    case "$opt" in
+        clean)
+            rm -fr $BASE || true
+            ;;
+    esac
 done

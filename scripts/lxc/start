@@ -1,16 +1,25 @@
 #!/bin/bash
-
+set -x
 SCRIPTBASE=$(readlink -nf $(dirname $0))
 
 ID=$1
 NAME="${CLUSTER_NAME}-$ID"
-BASE="$CLUSTER_BASE/nodes/node-$ID"
+BASE="$CLUSTER_BASE/nodes/$ID"
 ID_HEX=$(printf '%02x' $ID)
 
 STATUS=$(lxc-info -n $NAME 2>/dev/null | grep 'state:' | sed -r 's/^state:[[:space:]]*([^[:space:]]+).*$/\1/')
 test "$STATUS" == "RUNNING" && exit 0
 
 set -e
+
+shift
+for opt in $@ ; do
+    case "$opt" in
+        clean)
+            rm -fr $BASE/over || true
+            ;;
+    esac
+done
 
 for dir in root over os base ; do
     mkdir -p $BASE/$dir
