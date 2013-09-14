@@ -1,26 +1,15 @@
 #!/bin/bash
 set -x
-ID=$1
-NAME=${CLUSTER_NAME}-$ID
-BASE=$CLUSTER_BASE/nodes/$ID
+SCRIPTBASE=$(readlink -nf $(dirname $0))
+source "$SCRIPTBASE/functions.sh"
 
-STATUS=$(lxc-info -n $NAME 2>/dev/null | grep 'state:' | sed -r 's/^state:[[:space:]]*([^[:space:]]+).*$/\1/')
+node_stop
+umount_fs
 
-case "$STATUS" in
-    RUNNING|STARTING|FREEZING|FROZEN)
-        lxc-stop -n $NAME
-        ;;
-esac
-
-for dir in root os base ; do
-    ! mountpoint $BASE/$dir || umount $BASE/$dir
-done
-
-shift
 for opt in $@ ; do
     case "$opt" in
         clean)
-            rm -fr $BASE || true
+            rm -fr $NODE_BASE || true
             ;;
     esac
 done

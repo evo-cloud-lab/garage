@@ -1,11 +1,10 @@
 #!/bin/bash
 set -x
-ID=$1
-NAME=${CLUSTER_NAME}-$ID
-BASE=$CLUSTER_BASE/nodes
+SCRIPTBASE=$(readlink -nf $(dirname $0))
+source "$SCRIPTBASE/functions.sh"
 
-if [ -d "$BASE/$ID" ]; then
-    lxc-info -n $NAME
+if [ -d "$NODE_BASE" ]; then
+    lxc-info -n $NODE_NAME
 else
     echo "state: UNPROVISIONED"
 fi

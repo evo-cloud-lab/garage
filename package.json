@@ -1,7 +1,7 @@
 {
     "name": "evo-garage",
     "description": "Evo Cloud Development Cluster Management",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "author": "Yisui Hu <easeway@gmail.com>",
     "repository": {
         "type": "git",

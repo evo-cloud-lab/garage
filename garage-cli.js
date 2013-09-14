@@ -199,11 +199,11 @@ nomnom.script('garage')
 nomnom.command('info')
     .help('Display Server and CLI information')
     .callback(function (opts) {
-        console.log(V.name + ' CLI'.yellow.bold);
+        console.log((V.name + ' CLI').yellow.bold);
         printObject(V, PREFIX);
         if (opts.server) {
             rest(opts.server + '/info', function (data) {
-                console.log("\n" + V.name + ' Server'.yellow.bold);
+                console.log("\n" + (V.name + ' Server').yellow.bold);
                 printObject(data, PREFIX);
                 apiCompatible(data.api) || console.log('API incompatible!'.red);
             });
@@ -237,7 +237,8 @@ nomnom.command('add-clusters')
         })
     .help('Register a new cluster')
     .callback(function (opts) {
-        rest(apiUrl(opts, '/clusters'), { data: { paths: opts.PATH } }, function (data) {
+        var paths = opts.PATH.map(function (dir) { return path.resolve(dir); });
+        rest(apiUrl(opts, '/clusters'), { data: { paths: paths } }, function (data) {
             Array.isArray(data) && data.forEach(printCluster);
         });
     });
