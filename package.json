@@ -1,11 +1,14 @@
 {
     "name": "evo-garage",
     "description": "Evo Cloud Development Cluster Management",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "author": "Yisui Hu <easeway@gmail.com>",
     "repository": {
         "type": "git",
         "url": "https://github.com/evo-cloud/garage"
+    },
+    "scripts": {
+        "test": "mocha --reporter spec test/*-test.js"
     },
     "main": "index.js",
     "bin": {
@@ -21,6 +24,10 @@
         "nomnom": "1.6.1",
         "colors": "0.6.2",
         "request": "2.27.0"
+    },
+    "devDependencies": {
+        "mocha": "1.12.0",
+        "sandboxed-module": "0.2.1"
     },
     "engines": {
         "node": ">=0.10",
