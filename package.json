@@ -17,6 +17,7 @@
     },
     "dependencies": {
         "evo-elements": "git://github.com/evo-cloud/elements",
+        "evo-ambience": "git://github.com/evo-cloud/ambience",
         "async": "0.2.9",
         "js-class": "0.0.2",
         "underscore": "1.5.1",
