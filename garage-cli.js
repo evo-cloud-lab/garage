@@ -71,9 +71,9 @@ function rest(path, opts, callback) {
                 throw err;
             } else if (response.statusCode >= 400) {
                 var message = body && body.message && body.message.toString();
-                if (message) {
-                    console.log(message.red);
-                }
+                message && console.log(message.red);
+                var stack = body && body.stack && body.stack.toString();
+                stack && console.log(stack.grey);
                 throw new Error('Request failed ' + response.statusCode);
             } else {
                 done = function (err) {
